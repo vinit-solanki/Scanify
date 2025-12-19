@@ -1,11 +1,10 @@
 flask
 pytesseract
 Pillow
-opencv-python
+opencv-python-headless
 python-dotenv
 google-generativeai
-utils
-config
 requests
 numpy
 flask-cors
+gunicorn

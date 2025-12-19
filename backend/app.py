@@ -13,14 +13,24 @@ from pipeline import run_pipeline_from_text, run_pipeline_from_blocks
 from vision.ocr_agent import extract_text_blocks
 
 app = Flask(__name__)
-CORS(app)
+
+# CORS configuration - allow all origins for now (restrict in production)
+CORS(app, resources={
+    r"/*": {
+        "origins": ["*"],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 
+@app.get("/")
 @app.get("/health")
 def health():
-    return jsonify({"status": "ok"})
+    return jsonify({"status": "ok", "message": "Scanify API is running"})
 
 
+@app.post("/api/analyze")
 @app.post("/analyze")
 def analyze():
     mode = request.values.get("mode", "general")
@@ -59,6 +69,12 @@ def analyze():
     except Exception as e:
         # Surface errors with a message
         return jsonify({"error": str(e)}), 500
+
+
+# Vercel serverless function handler
+def handler(request):
+    with app.request_context(request.environ):
+        return app.full_dispatch_request()
 
 
 if __name__ == "__main__":
