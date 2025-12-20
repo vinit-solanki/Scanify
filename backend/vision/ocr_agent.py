@@ -1,29 +1,58 @@
-import pytesseract
 import os
+import platform
+import pytesseract
 from pytesseract import Output
 from vision.image_preprocessor import preprocess_image
 
-# Set Tesseract path from environment or use defaults for Windows/Linux
-tesseract_path = os.getenv("TESSERACT_PATH")
-if tesseract_path:
-    pytesseract.pytesseract.tesseract_cmd = tesseract_path
-else:
-    # Default paths for Windows
-    pytesseract.pytesseract.tesseract_cmd = (
-        r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-    )
 
-# Set TESSDATA_PREFIX from environment or use default
-tessdata_prefix = os.getenv("TESSDATA_PREFIX")
-if tessdata_prefix:
-    os.environ["TESSDATA_PREFIX"] = tessdata_prefix
-else:
-    # Default path for Windows
-    os.environ["TESSDATA_PREFIX"] = (
-        r"C:\Program Files\Tesseract-OCR\tessdata"
-    )
+def configure_tesseract():
+    """
+    Configure Tesseract path and tessdata directory
+    for Windows (local) and Linux (Render/Docker).
+    Environment variables take highest priority.
+    """
+
+    # 1️⃣ Explicit override via environment variable
+    tesseract_path = os.getenv("TESSERACT_PATH")
+    if tesseract_path:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_path
+    else:
+        system = platform.system().lower()
+
+        # 2️⃣ Linux (Render, Docker, servers)
+        if system == "linux":
+            pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
+            os.environ.setdefault(
+                "TESSDATA_PREFIX",
+                "/usr/share/tesseract-ocr/5/tessdata"
+            )
+
+        # 3️⃣ Windows (local development)
+        elif system == "windows":
+            pytesseract.pytesseract.tesseract_cmd = (
+                r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+            )
+            os.environ.setdefault(
+                "TESSDATA_PREFIX",
+                r"C:\Program Files\Tesseract-OCR\tessdata"
+            )
+
+    # 4️⃣ Fail fast if Tesseract is still missing
+    if not os.path.exists(pytesseract.pytesseract.tesseract_cmd):
+        raise RuntimeError(
+            f"Tesseract binary not found at: {pytesseract.pytesseract.tesseract_cmd}"
+        )
+
+
+# Configure once at import time
+configure_tesseract()
+
 
 def extract_text_blocks(image_path):
+    """
+    Extract OCR text blocks with bounding boxes and confidence scores.
+    """
+
     processed_image = preprocess_image(image_path)
 
     ocr_data = pytesseract.image_to_data(
@@ -37,7 +66,11 @@ def extract_text_blocks(image_path):
 
     for i in range(n):
         text = ocr_data["text"][i].strip()
-        conf = int(ocr_data["conf"][i])
+
+        try:
+            conf = int(float(ocr_data["conf"][i]))
+        except ValueError:
+            continue
 
         if text and conf > 40:
             text_blocks.append({
