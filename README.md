@@ -45,9 +45,10 @@ AI-powered food label analysis system that extracts nutrition facts, analyzes in
    - Update path in `backend/vision/ocr_agent.py` if different
 
 4. **Configure environment variables**
-   - The `.env` file in `backend/` is already set up
+   - Copy [backend/.env.example](backend/.env.example) to `backend/.env`
    - Get your Gemini API key from: https://aistudio.google.com/app/apikey
-   - Update `GEMINI_API_KEY` in `backend/.env`
+   - Set `GEMINI_API_KEY` in `backend/.env`
+   - `.env` files are ignored by git; do not commit real secrets
 
 5. **Start the backend server**
    ```powershell
@@ -187,6 +188,31 @@ python main.py
 - Gemini API has rate limits on free tier
 - Image quality affects OCR accuracy - use clear, well-lit photos
 - Text mode is faster than image mode (no OCR needed)
+
+### Security: Removing leaked `.env` from Git history
+
+If a `.env` was committed by mistake:
+
+1. Stop tracking the file and add to `.gitignore`:
+   ```powershell
+   git rm --cached backend/.env
+   git commit -m "Stop tracking backend .env and ignore env files"
+   git push
+   ```
+2. Rotate your API key in Google AI Studio.
+3. Purge the secret from repository history using one of:
+   - BFG Repo-Cleaner (Windows-friendly): https://rtyley.github.io/bfg-repo-cleaner/
+   - git-filter-repo (official): https://github.com/newren/git-filter-repo
+
+Example using BFG with a mirror clone:
+```powershell
+git clone --mirror https://github.com/<owner>/<repo>.git
+cd <repo>.git
+java -jar bfg.jar --delete-files .env
+git reflog expire --expire-unreachable=now --all
+git gc --prune=now --aggressive
+git push --force
+```
 
 ## License
 
