@@ -3,13 +3,25 @@ import os
 from pytesseract import Output
 from vision.image_preprocessor import preprocess_image
 
-pytesseract.pytesseract.tesseract_cmd = (
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-)
+# Set Tesseract path from environment or use defaults for Windows/Linux
+tesseract_path = os.getenv("TESSERACT_PATH")
+if tesseract_path:
+    pytesseract.pytesseract.tesseract_cmd = tesseract_path
+else:
+    # Default paths for Windows
+    pytesseract.pytesseract.tesseract_cmd = (
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    )
 
-os.environ["TESSDATA_PREFIX"] = (
-    r"C:\Program Files\Tesseract-OCR\tessdata"
-)
+# Set TESSDATA_PREFIX from environment or use default
+tessdata_prefix = os.getenv("TESSDATA_PREFIX")
+if tessdata_prefix:
+    os.environ["TESSDATA_PREFIX"] = tessdata_prefix
+else:
+    # Default path for Windows
+    os.environ["TESSDATA_PREFIX"] = (
+        r"C:\Program Files\Tesseract-OCR\tessdata"
+    )
 
 def extract_text_blocks(image_path):
     processed_image = preprocess_image(image_path)
