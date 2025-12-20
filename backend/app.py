@@ -7,7 +7,10 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 
 # Load env BEFORE importing modules that may read it at import time
-load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
+# Try loading .env.production for production, fall back to .env for development
+env_file = Path(__file__).resolve().parent / (".env.production" if os.getenv("FLASK_ENV") == "production" else ".env")
+if env_file.exists():
+    load_dotenv(dotenv_path=env_file)
 
 from pipeline import run_pipeline_from_text, run_pipeline_from_blocks
 from vision.ocr_agent import extract_text_blocks

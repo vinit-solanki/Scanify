@@ -4,6 +4,7 @@ FROM python:3.12-slim
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         tesseract-ocr \
+        tesseract-ocr-eng \
         libtesseract-dev \
         libgl1-mesa-glx \
     && rm -rf /var/lib/apt/lists/*
@@ -15,7 +16,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-ENV TESSERACT_CMD=/usr/bin/tesseract
+ENV TESSERACT_PATH=/usr/bin/tesseract
+ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/4.00/tessdata
 ENV PORT=${PORT:-5000}
 
 EXPOSE 5000
