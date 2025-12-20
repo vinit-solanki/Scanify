@@ -82,9 +82,13 @@ def run_pipeline_from_blocks(text_blocks: List[Dict[str, Any]], mode: str = "gen
     )
 
     # Stage-6
-    label_data["explanation"] = generate_explanation(
-        label_data,
-        mode=mode,
-    )
+    try:
+        label_data["explanation"] = generate_explanation(
+            label_data,
+            mode=mode,
+        )
+    except Exception as e:
+        # Keep pipeline results even if LLM call fails
+        label_data["explanation"] = f"Explanation unavailable: {e}"
 
     return label_data

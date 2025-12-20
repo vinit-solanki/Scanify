@@ -10,11 +10,18 @@ export async function analyzeProduct({ labelText, mode = "general" }) {
     }),
   });
 
-  if (!response.ok) {
-    throw new Error("Backend analysis failed");
+  let data;
+  try {
+    data = await response.json();
+  } catch (err) {
+    data = null;
   }
 
-  return response.json();
+  if (!response.ok) {
+    throw new Error(data?.error || "Backend analysis failed");
+  }
+
+  return data;
 }
 
 export async function analyzeProductImage({ image, mode = "general" }) {
@@ -27,9 +34,16 @@ export async function analyzeProductImage({ image, mode = "general" }) {
     body: formData,
   });
 
-  if (!response.ok) {
-    throw new Error("Backend image analysis failed");
+  let data;
+  try {
+    data = await response.json();
+  } catch (err) {
+    data = null;
   }
 
-  return response.json();
+  if (!response.ok) {
+    throw new Error(data?.error || "Backend image analysis failed");
+  }
+
+  return data;
 }
