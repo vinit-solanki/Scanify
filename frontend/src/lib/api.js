@@ -1,5 +1,5 @@
 export async function analyzeProduct({ labelText, mode = "general" }) {
-  const response = await fetch("http://localhost:5000/analyze", {
+  const response = await fetch("https://scanify-rd8p.onrender.com/analyze", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -29,7 +29,7 @@ export async function analyzeProductImage({ image, mode = "general" }) {
   formData.append("image", image);
   formData.append("mode", mode);
 
-  const response = await fetch("http://localhost:5000/analyze", {
+  const response = await fetch("https://scanify-rd8p.onrender.com/analyze", {
     method: "POST",
     body: formData,
   });
