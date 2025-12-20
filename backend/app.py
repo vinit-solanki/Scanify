@@ -27,7 +27,25 @@ CORS(app, resources={
 @app.get("/")
 @app.get("/health")
 def health():
-    return jsonify({"status": "ok", "message": "Scanify API is running"})
+    # Report basic LLM configuration status without exposing secrets
+    llm_disabled = (os.getenv("DISABLE_LLM", "0") in ("1", "true", "True"))
+    gemini_present = bool(os.getenv("GEMINI_API_KEY"))
+    google_present = bool(os.getenv("GOOGLE_API_KEY"))
+    llm_source = (
+        "disabled" if llm_disabled else
+        "gemini" if gemini_present else
+        "google" if google_present else
+        "none"
+    )
+
+    return jsonify({
+        "status": "ok",
+        "message": "Scanify API is running",
+        "llm": {
+            "configured": (not llm_disabled) and (gemini_present or google_present),
+            "source": llm_source
+        }
+    })
 
 
 @app.post("/api/analyze")

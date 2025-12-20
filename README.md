@@ -56,6 +56,7 @@ AI-powered food label analysis system that extracts nutrition facts, analyzes in
    ```
    - Server runs at `http://localhost:5000`
    - Test with: `http://localhost:5000/health`
+   - Health will report `llm.configured` and `llm.source` (gemini/google/disabled/none)
 
 ### Frontend Setup
 
@@ -213,6 +214,10 @@ git reflog expire --expire-unreachable=now --all
 git gc --prune=now --aggressive
 git push --force
 ```
+
+### Temporarily disable AI explanations
+- Set `DISABLE_LLM=1` in `backend/.env` to bypass Gemini calls while keeping the rest of the analysis functional.
+- Revert to `DISABLE_LLM=0` (or remove it) once your key is rotated and working.
 
 ## License
 

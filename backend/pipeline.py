@@ -1,3 +1,4 @@
+import os
 from typing import List, Dict, Any
 
 from validation.label_validator import validate_food_label
@@ -81,14 +82,20 @@ def run_pipeline_from_blocks(text_blocks: List[Dict[str, Any]], mode: str = "gen
         mode=mode,
     )
 
-    # Stage-6
-    try:
-        label_data["explanation"] = generate_explanation(
-            label_data,
-            mode=mode,
-        )
-    except Exception as e:
-        # Keep pipeline results even if LLM call fails
-        label_data["explanation"] = f"Explanation unavailable: {e}"
+    # Stage-6 (LLM explanation)
+    if os.getenv("DISABLE_LLM", "0") in ("1", "true", "True"):
+        label_data["explanation"] = "AI explanation disabled by server configuration (DISABLE_LLM)."
+    else:
+        try:
+            label_data["explanation"] = generate_explanation(
+                label_data,
+                mode=mode,
+            )
+        except Exception:
+            # Keep pipeline results even if LLM call fails; avoid leaking raw error text
+            label_data["explanation"] = (
+                "AI explanation is temporarily unavailable. "
+                "Please verify your GEMINI_API_KEY/GOOGLE_API_KEY and try again."
+            )
 
     return label_data
