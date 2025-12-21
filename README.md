@@ -1,5 +1,7 @@
 # Scanify - AI Food Label Analyzer
-
+--
+# View Demo: https://drive.google.com/file/d/1VJj1Ogb7y6-Tw4EtWxPeac3xX_11UnsC/view?usp=sharing
+--
 AI-powered food label analysis system that extracts nutrition facts, analyzes ingredients, and provides personalized health insights.
 
 ## Features
