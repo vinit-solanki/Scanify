@@ -1,17 +1,27 @@
-import pytesseract
 import os
+import pytesseract
 from pytesseract import Output
 from vision.image_preprocessor import preprocess_image
 
-pytesseract.pytesseract.tesseract_cmd = (
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-)
 
-os.environ["TESSDATA_PREFIX"] = (
-    r"C:\Program Files\Tesseract-OCR\tessdata"
-)
+def configure_tesseract():
+    """
+    Configure Tesseract path and tessdata directory.
+    Windows default: C:\\Program Files\\Tesseract-OCR\\
+    Linux/Docker default: /usr/bin/tesseract
+    """
+    tesseract_path = os.getenv("TESSERACT_PATH")
+    if tesseract_path:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_path
+
+
+configure_tesseract()
+
 
 def extract_text_blocks(image_path):
+    """
+    Extract OCR text blocks with bounding boxes and confidence scores using Tesseract.
+    """
     processed_image = preprocess_image(image_path)
 
     ocr_data = pytesseract.image_to_data(
@@ -25,7 +35,11 @@ def extract_text_blocks(image_path):
 
     for i in range(n):
         text = ocr_data["text"][i].strip()
-        conf = int(ocr_data["conf"][i])
+
+        try:
+            conf = int(float(ocr_data["conf"][i]))
+        except (ValueError, IndexError):
+            continue
 
         if text and conf > 40:
             text_blocks.append({
@@ -40,3 +54,4 @@ def extract_text_blocks(image_path):
             })
 
     return text_blocks
+

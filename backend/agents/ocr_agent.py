@@ -1,17 +1,8 @@
-import pytesseract
-from PIL import Image
-import os
-from dotenv import load_dotenv
+"""OCR wrapper that delegates to Google Document AI blocks."""
 
-load_dotenv()
+from vision.ocr_agent import extract_text_blocks
 
-pytesseract.pytesseract.tesseract_cmd = os.getenv("TESSERACT_PATH")
 
-def extract_text_from_image(image_path):
-    """
-    Performs OCR on label image
-    """
-    image = Image.open(image_path)
-    text = pytesseract.image_to_string(image, lang="eng")
-
-    return text.strip()
+def extract_text_from_image(image_path: str) -> str:
+    blocks = extract_text_blocks(image_path)
+    return "\n".join([b.get("text", "") for b in blocks]).strip()

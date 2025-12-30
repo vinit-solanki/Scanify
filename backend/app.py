@@ -7,17 +7,20 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 
 # Load env BEFORE importing modules that may read it at import time
-load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
+# Try loading .env.production for production, fall back to .env for development
+env_file = Path(__file__).resolve().parent / (".env.production" if os.getenv("FLASK_ENV") == "production" else ".env")
+if env_file.exists():
+    load_dotenv(dotenv_path=env_file)
 
 from pipeline import run_pipeline_from_text, run_pipeline_from_blocks
 from vision.ocr_agent import extract_text_blocks
 
 app = Flask(__name__)
 
-# CORS configuration - allow all origins for now (restrict in production)
+# CORS configuration - allow all origins for development
 CORS(app, resources={
     r"/*": {
-        "origins": ["*"],
+        "origins": ["*", "http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
     }
@@ -27,25 +30,7 @@ CORS(app, resources={
 @app.get("/")
 @app.get("/health")
 def health():
-    # Report basic LLM configuration status without exposing secrets
-    llm_disabled = (os.getenv("DISABLE_LLM", "0") in ("1", "true", "True"))
-    gemini_present = bool(os.getenv("GEMINI_API_KEY"))
-    google_present = bool(os.getenv("GOOGLE_API_KEY"))
-    llm_source = (
-        "disabled" if llm_disabled else
-        "gemini" if gemini_present else
-        "google" if google_present else
-        "none"
-    )
-
-    return jsonify({
-        "status": "ok",
-        "message": "Scanify API is running",
-        "llm": {
-            "configured": (not llm_disabled) and (gemini_present or google_present),
-            "source": llm_source
-        }
-    })
+    return jsonify({"status": "ok", "message": "Scanify API is running"})
 
 
 @app.post("/api/analyze")
@@ -97,4 +82,4 @@ def handler(request):
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)

@@ -31,3 +31,4 @@ data/*.png
 **/.env
 !backend/.env.example
 !frontend/.env.example
+.vercel
