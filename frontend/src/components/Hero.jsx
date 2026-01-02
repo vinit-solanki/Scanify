@@ -2,6 +2,7 @@ import { Button } from "./ui/button";
 import { SparklesCore } from "./ui/sparkles";
 import { BackgroundBeams } from "./ui/background-beams";
 import { HoverBorderGradient } from "./ui/hover-border-gradient";
+import { Link } from "react-router-dom";
 
 const chips = [
   "Instant OCR verdicts",
@@ -61,7 +62,9 @@ export default function Hero() {
 
           <div className="flex flex-wrap items-center gap-3">
             <Button className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 px-6 py-3 text-base font-semibold text-black shadow-[0_10px_50px_-15px_rgba(16,185,129,0.65)] transition hover:scale-[1.02]">
+              <Link to="/scan">
               Launch the scanner
+              </Link>
             </Button>
 
             <HoverBorderGradient
@@ -69,7 +72,9 @@ export default function Hero() {
               className="bg-white/10 px-5 py-3 text-sm font-semibold text-white"
               containerClassName="rounded-full"
             >
+              <Link to="https://drive.google.com/file/d/1VJj1Ogb7y6-Tw4EtWxPeac3xX_11UnsC/view?usp=sharing" target="_blank" rel="noopener noreferrer">
               Watch 45s demo →
+              </Link>
             </HoverBorderGradient>
           </div>
 
