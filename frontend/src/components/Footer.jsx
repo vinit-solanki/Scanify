@@ -135,6 +135,16 @@ export default function Footer() {
           </div>
         </div>
       </div>
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="relative flex items-center justify-center">
+          <span className="absolute mb-10 text-[18vw] font-extrabold tracking-tight text-white/20 blur-2xl">
+            Scanify
+          </span>
+          <h1 className="mb-10 text-[18vw] font-extrabold tracking-tight text-white/10">
+            Scanify
+          </h1>
+        </div>
+      </div>
     </footer>
   );
 }
