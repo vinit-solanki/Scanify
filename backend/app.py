@@ -1,3 +1,35 @@
+from fastapi import FastAPI, UploadFile, File, Query
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+
+from pipeline import analyze_image
+
+app = FastAPI(title="Scanify Simple Backend", version="1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+@app.post("/analyze")
+async def analyze(file: UploadFile = File(...), mode: str = Query("diabetes", enum=["diabetes", "weight_loss"])):
+    data = await file.read()
+    result = analyze_image(data, mode=mode)
+    return result
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
 import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -57,7 +89,9 @@ def analyze():
                 file.save(tmp.name)
                 tmp_path = tmp.name
             try:
-                text_blocks = extract_text_blocks(tmp_path)
+                # Allow overriding engine via query/form param; fallback to env
+                ocr_engine = request.values.get("ocr", os.getenv("OCR_ENGINE", "tesseract")).lower()
+                text_blocks = extract_text_blocks(tmp_path, engine=ocr_engine)
             finally:
                 try:
                     os.remove(tmp_path)

@@ -1,3 +1,48 @@
+from typing import Dict
+
+from simple import ocr, extract, ontology, scoring, llm
+from simple.schemas import NutritionFacts, AnalysisResult
+
+
+def analyze_image(file_bytes: bytes, mode: str = "diabetes") -> Dict:
+    """Run the simplified end-to-end pipeline on image bytes.
+
+    Steps:
+    - OCR to text
+    - Parse ingredients and nutrition facts
+    - Tag ingredients via simple ontology rules
+    - Deterministic health scoring for chosen mode
+    - Generate short explanation (rule-based or Gemini if configured)
+    """
+    text = ocr.extract_text(file_bytes)
+    ingredients = extract.parse_ingredients(text)
+    nutrition_dict = extract.parse_nutrition(text)
+    nutrition = NutritionFacts(**nutrition_dict)
+    tags = sorted(list(ontology.tag_ingredients(ingredients)))
+    score_value, risk_reasons = scoring.score(nutrition_dict, tags, mode)
+    explanation = llm.generate_explanation(
+        {
+            "ingredients": ingredients,
+            "nutrition": nutrition_dict,
+            "tags": tags,
+            "risks": risk_reasons,
+            "score": score_value,
+        },
+        mode,
+    )
+
+    result = AnalysisResult(
+        mode=mode,
+        text=text,
+        ingredients=ingredients,
+        nutrition=nutrition,
+        tags=tags,
+        risks=risk_reasons,
+        score=score_value,
+        explanation=explanation,
+    )
+    return result.model_dump()
+
 from typing import List, Dict, Any
 
 from validation.label_validator import validate_food_label

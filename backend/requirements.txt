@@ -1,3 +1,5 @@
+# Original requirements may be extensive; simplified backend uses minimal deps
+# Keep heavy ML libs out; rely on Tesseract and rule-based logic
 flask
 pytesseract
 Pillow
@@ -8,3 +10,26 @@ requests
 numpy
 flask-cors
 gunicorn
+transformers
+torch
+olmocr>=0.4.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.24.0
+pillow>=10.0.0
+pytesseract>=0.3.10
+pydantic>=2.6.0
+python-dotenv>=1.0.0
+google-generativeai>=0.3.0
+flask
+pytesseract
+Pillow
+opencv-python-headless
+python-dotenv
+google-generativeai
+requests
+numpy
+flask-cors
+gunicorn
+transformers
+torch
+olmocr>=0.4.0
