@@ -10,6 +10,74 @@ import { analyzeProduct, analyzeProductImage } from "../lib/api";
 import { transformAnalysisToScanResult } from "../lib/transformResponse";
 import { formatExplanation, getHealthColor } from "../lib/formatExplanation";
 
+const getInsightSectionStyle = (title = "") => {
+  const normalized = title.toLowerCase();
+
+  if (normalized.includes("summary")) {
+    return {
+      icon: "🧠",
+      badge: "Overview",
+      border: "border-cyan-400/25",
+      bg: "bg-cyan-500/10",
+      title: "text-cyan-200",
+    };
+  }
+
+  if (normalized.includes("positive")) {
+    return {
+      icon: "✅",
+      badge: "Strengths",
+      border: "border-emerald-400/25",
+      bg: "bg-emerald-500/10",
+      title: "text-emerald-200",
+    };
+  }
+
+  if (normalized.includes("concern")) {
+    return {
+      icon: "⚠️",
+      badge: "Watchouts",
+      border: "border-amber-400/25",
+      bg: "bg-amber-500/10",
+      title: "text-amber-200",
+    };
+  }
+
+  if (normalized.includes("recommend")) {
+    return {
+      icon: "🎯",
+      badge: "Action Plan",
+      border: "border-violet-400/25",
+      bg: "bg-violet-500/10",
+      title: "text-violet-200",
+    };
+  }
+
+  if (normalized.includes("confidence")) {
+    return {
+      icon: "📎",
+      badge: "Context",
+      border: "border-neutral-500/35",
+      bg: "bg-neutral-500/10",
+      title: "text-neutral-200",
+    };
+  }
+
+  return {
+    icon: "✨",
+    badge: "Insight",
+    border: "border-white/15",
+    bg: "bg-white/5",
+    title: "text-emerald-200",
+  };
+};
+
+const modeOptions = [
+  { value: "general", label: "🍽️ General", desc: "Overall health" },
+  { value: "diabetes", label: "💉 Diabetes", desc: "Sugar control" },
+  { value: "weight_loss", label: "⚖️ Weight Loss", desc: "Calorie tracking" },
+];
+
 function ProductScan() {
   const [productData, setProductData] = useState("");
   const [scanResult, setScanResult] = useState(null);
@@ -129,11 +197,12 @@ function ProductScan() {
   ];
 
   return (
-    <div className="bg-black text-white min-h-screen">
+    <div className="relative min-h-screen bg-gradient-to-b from-black via-neutral-950 to-black text-white">
+      <div className="pointer-events-none absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)', backgroundSize: '56px 56px' }} />
       <Navbar />
       
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-24 pb-16">
+      <section className="relative overflow-hidden pt-24 pb-20">
         <div className="absolute inset-0">
           <div className="absolute -left-20 top-10 h-72 w-72 rounded-full bg-emerald-500/25 blur-3xl" />
           <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-cyan-500/20 blur-3xl" />
@@ -150,41 +219,59 @@ function ProductScan() {
         </div>
 
         <div className="relative z-10 mx-auto max-w-6xl px-6">
-          <div className="text-center space-y-6 mb-12">
-            
-            <h1 className="text-3xl md:text-5xl font-black leading-tight">
-              Food Label <span className="bg-gradient-to-r from-emerald-400 via-cyan-300 to-cyan-600 bg-clip-text text-transparent">
-                 Health Analyzer
-              </span>
-            </h1>
-            
-            <p className="max-w-2xl mx-auto text-base md:text-lg text-neutral-300 leading-relaxed">
-              Scan food labels to instantly analyze nutrition facts, ingredients, and health impact.
-              Get AI-powered insights tailored to your dietary needs.
-            </p>
+          <Card className="relative border-white/10 bg-white/5 backdrop-blur-xl p-7 md:p-10 mb-10 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-cyan-500/5 to-violet-500/10" />
+            <div className="relative text-center space-y-6">
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                <Badge className="bg-white/10 border-white/20 text-neutral-200 text-xs px-3 py-1">AI Nutrition Intelligence</Badge>
+                <Badge className="bg-emerald-500/20 border-emerald-400/30 text-emerald-200 text-xs px-3 py-1">Realtime Health Insights</Badge>
+              </div>
 
-            {/* Mode Selection */}
-            <div className="flex justify-center gap-3 flex-wrap">
-              {[
-                { value: "general", label: "🍽️ General", desc: "Overall health" },
-                { value: "diabetes", label: "💉 Diabetes", desc: "Sugar control" },
-                { value: "weight_loss", label: "⚖️ Weight Loss", desc: "Calorie tracking" }
-              ].map(({ value, label, desc }) => (
-                <Button
-                  key={value}
-                  onClick={() => handleModeChange(value)}
-                  disabled={loading}
-                  className={`${
-                    mode === value 
-                      ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-lg shadow-emerald-500/50" 
-                      : "bg-white/10 text-neutral-300 hover:bg-white/20"
-                  } px-5 py-3 text-sm font-semibold transition-all rounded-lg group disabled:opacity-50 disabled:cursor-not-allowed`}
-                  title={desc}
-                >
-                  {label}
-                </Button>
-              ))}
+              <h1 className="text-white text-3xl md:text-5xl font-black leading-tight tracking-tight">
+                Food Label <span className="bg-gradient-to-r from-emerald-400 via-cyan-300 to-cyan-600 bg-clip-text text-transparent">
+                  Health Analyzer
+                </span>
+              </h1>
+
+              <p className="max-w-3xl mx-auto text-base md:text-lg text-neutral-300 leading-relaxed">
+                Scan labels to instantly evaluate nutrition quality, ingredient risks, and personalized health impact.
+                Designed for fast decisions with clinically-inspired clarity.
+              </p>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-left">
+                {[
+                  { title: "OCR Ready", desc: "Image + text input" },
+                  { title: "Per 100g", desc: "Normalized analysis" },
+                  { title: "Risk Signals", desc: "Additives & allergens" },
+                  { title: "AI Insights", desc: "Actionable guidance" },
+                ].map((item) => (
+                  <div key={item.title} className="rounded-xl border border-white/10 bg-black/30 p-3.5">
+                    <p className="text-xs text-neutral-400 uppercase tracking-wider">{item.title}</p>
+                    <p className="text-sm text-neutral-100 mt-1 font-medium">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Mode Selection */}
+              <div className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 p-2 flex-wrap justify-center">
+                {modeOptions.map(({ value, label, desc }) => (
+                  <Button
+                    key={value}
+                    onClick={() => handleModeChange(value)}
+                    disabled={loading}
+                    className={`${
+                      mode === value
+                        ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-lg shadow-emerald-500/35"
+                        : "bg-transparent text-neutral-300 hover:bg-white/10"
+                    } px-4 py-2.5 text-sm font-semibold transition-all rounded-lg group disabled:opacity-50 disabled:cursor-not-allowed`}
+                    title={desc}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
             </div>
+          </Card>
             
             {/* Mode Change Indicator */}
             {scanResult && loading && (
@@ -192,23 +279,26 @@ function ProductScan() {
                 Re-analyzing with {mode === "general" ? "General" : mode === "diabetes" ? "Diabetes" : "Weight Loss"} mode...
               </p>
             )}
-          </div>
+          
 
           {/* Input Section */}
           <div className="grid lg:grid-cols-2 gap-6 mb-10">
             {/* Image Upload */}
-            <Card className="relative border-white/10 bg-white/5 p-6 backdrop-blur hover:border-emerald-500/30 transition-all group">
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-500/10 via-cyan-400/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Card className="relative border-white/10 bg-white/5 p-6 backdrop-blur-xl hover:border-emerald-500/30 transition-all group shadow-2xl shadow-emerald-500/5">
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-500/10 via-cyan-400/5 to-transparent opacity-80" />
               <div className="relative space-y-4">
                 <div>
-                  <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <span>📸</span>
+                  <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      <span>📸</span>
                     Upload Food Label Image
-                  </h3>
+                    </h3>
+                    <Badge className="text-[11px] bg-emerald-500/15 text-emerald-200 border-emerald-400/30">Camera Input</Badge>
+                  </div>
                   <p className="text-sm text-neutral-400">Take a photo or upload a clear image of the food label</p>
                 </div>
 
-                <div className="border-2 border-dashed border-white/20 rounded-xl p-10 text-center hover:border-emerald-400/60 transition-all cursor-pointer bg-white/5">
+                <div className="border-2 border-dashed border-white/20 rounded-xl p-10 text-center hover:border-emerald-400/60 transition-all cursor-pointer bg-black/30">
                   <input
                     type="file"
                     accept="image/*"
@@ -249,14 +339,17 @@ function ProductScan() {
             </Card>
 
             {/* Text Input */}
-            <Card className="relative border-white/10 bg-white/5 p-6 backdrop-blur hover:border-cyan-500/30 transition-all group">
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-500/10 via-blue-400/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Card className="relative border-white/10 bg-white/5 p-6 backdrop-blur-xl hover:border-cyan-500/30 transition-all group shadow-2xl shadow-cyan-500/5">
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-500/10 via-blue-400/5 to-transparent opacity-80" />
               <div className="relative space-y-4">
                 <div>
-                  <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <span>📝</span>
+                  <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      <span>📝</span>
                     Paste Label Text
-                  </h3>
+                    </h3>
+                    <Badge className="text-[11px] bg-cyan-500/15 text-cyan-200 border-cyan-400/30">Manual Input</Badge>
+                  </div>
                   <p className="text-sm text-neutral-400">Enter ingredients list and nutrition facts manually</p>
                 </div>
 
@@ -305,7 +398,7 @@ function ProductScan() {
 
           {/* Loading State */}
           {loading && !scanResult && (
-            <Card className="border-white/10 bg-white/5 p-12 backdrop-blur text-center">
+            <Card className="border-white/10 bg-white/5 p-12 backdrop-blur text-center shadow-xl shadow-emerald-500/10">
               <div className="space-y-4">
                 <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-emerald-400 border-t-transparent" />
                 <div>
@@ -323,44 +416,76 @@ function ProductScan() {
 
           {/* Results Section */}
           {scanResult && (
-            <div className="grid lg:grid-cols-2 gap-6">
+            <div className="grid lg:grid-cols-12 gap-6">
               {/* AI Insights - Left Side */}
               {scanResult.rawData?.explanation && (
-                <Card className="relative border-white/10 bg-white/5 backdrop-blur overflow-hidden h-fit">
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-purple-500/10 via-blue-400/5 to-transparent" />
+                <Card className="relative border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden h-fit lg:col-span-7 shadow-2xl shadow-violet-500/10">
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-violet-500/15 via-cyan-400/10 to-transparent" />
                   <div className="relative p-6 space-y-5">
-                    <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20">
+                    <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-4 flex-wrap">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500/30 to-cyan-500/20 border border-white/10 shadow-lg shadow-violet-500/20">
                         <span className="text-2xl">🤖</span>
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-white">AI Health Insights</h3>
+                          <p className="text-xs text-neutral-400 mt-0.5">Generated from nutrition, ingredients, and risk signals</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-white">AI Health Insights</h3>
-                        <p className="text-xs text-neutral-400 mt-0.5">Powered by Gemini AI</p>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-violet-500/20 text-violet-200 border-violet-400/30 text-[11px] px-2.5 py-1">OpenRouter</Badge>
+                        <Badge className="bg-cyan-500/20 text-cyan-200 border-cyan-400/30 text-[11px] px-2.5 py-1">AI Summary</Badge>
                       </div>
                     </div>
                     
-                    <div className="space-y-5 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
-                      {formatExplanation(scanResult.rawData.explanation)?.map((section, idx) => (
-                        <div key={idx} className="space-y-2.5">
-                          {section.title && (
-                            <h4 className="text-base font-bold text-emerald-300 flex items-center gap-2">
-                              <span className="w-1 h-1 rounded-full bg-emerald-400"></span>
-                              {section.title}
-                            </h4>
-                          )}
-                          <div className="space-y-2 pl-3 border-l-2 border-white/10">
-                            {section.content.map((item, cidx) => (
-                              item.type === 'text' ? (
-                                <p key={cidx} className="text-sm text-neutral-300 leading-relaxed">
+                    <div className="grid grid-cols-2 gap-4 pr-2 custom-scrollbar">
+                      {formatExplanation(scanResult.rawData.explanation)?.map((section, idx) => {
+                        const sectionStyle = getInsightSectionStyle(section.title);
+
+                        return (
+                        <div key={idx} className={`rounded-xl border ${sectionStyle.border} ${sectionStyle.bg} p-4 space-y-3 backdrop-blur-sm`}>
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            {section.title ? (
+                              <h4 className={`text-[15px] font-bold ${sectionStyle.title} flex items-center gap-2`}>
+                                <span>{sectionStyle.icon}</span>
+                                {section.title}
+                              </h4>
+                            ) : (
+                              <h4 className={`text-[15px] font-bold ${sectionStyle.title} flex items-center gap-2`}>
+                                <span>{sectionStyle.icon}</span>
+                                Insight
+                              </h4>
+                            )}
+                            <Badge variant="outline" className="text-[10px] border-white/15 bg-black/20 text-neutral-300 px-2 py-0.5">
+                              {sectionStyle.badge}
+                            </Badge>
+                          </div>
+
+                          <div className="space-y-2.5">
+                            {section.content.map((item, cidx) => {
+                              if (item.type === 'bullet') {
+                                return (
+                                  <div key={cidx} className="flex items-start gap-2.5">
+                                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-white/70"></span>
+                                    <p className="text-sm text-neutral-200 leading-relaxed">{item.text}</p>
+                                  </div>
+                                );
+                              }
+
+                              if (item.type === 'break') {
+                                return <div key={cidx} className="h-1"></div>;
+                              }
+
+                              return (
+                                <p key={cidx} className="text-sm text-neutral-200 leading-relaxed">
                                   {item.text}
                                 </p>
-                              ) : (
-                                <div key={cidx} className="h-1.5"></div>
-                              )
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
-                      )) || (
+                        );
+                      }) || (
                         <div className="text-sm text-neutral-300 leading-relaxed whitespace-pre-line">
                           {scanResult.rawData.explanation}
                         </div>
@@ -371,7 +496,7 @@ function ProductScan() {
               )}
 
               {/* Health Analysis - Right Side */}
-              <Card className="relative border-white/10 bg-white/5 backdrop-blur overflow-hidden h-fit">
+              <Card className="relative border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden h-fit lg:col-span-5 lg:sticky lg:top-24 shadow-2xl shadow-emerald-500/10">
                 <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-emerald-500/10 via-cyan-400/5 to-transparent" />
                 <div className="relative p-6 space-y-6">
                   <div className="flex items-center justify-between flex-wrap gap-3">
@@ -379,6 +504,13 @@ function ProductScan() {
                     <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-400/30 px-4 py-2 text-sm font-semibold">
                       {scanResult.confidence}% Confidence
                     </Badge>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400" style={{ width: `${Math.max(5, Math.min(100, scanResult.confidence || 0))}%` }} />
+                    </div>
+                    <p className="text-xs text-neutral-400">Model confidence reflects extraction completeness and signal quality.</p>
                   </div>
 
                   {/* Primary Category */}
@@ -469,14 +601,14 @@ function ProductScan() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {processSteps.map((step, idx) => (
-              <Card key={idx} className="border-white/10 bg-white/5 p-6 backdrop-blur hover:bg-white/10 transition-colors">
-                <div className="text-center space-y-3">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 text-white font-bold text-lg">
-                    {idx + 1}
+              <Card key={idx} className="border-white/10 bg-white/5 p-6 backdrop-blur hover:bg-white/10 hover:border-emerald-400/25 transition-all group">
+                <div className="space-y-3">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-white font-bold text-lg group-hover:scale-105 transition-transform">
+                    0{idx + 1}
                   </div>
-                  <h3 className="text-lg font-bold text-white">{step.title}</h3>
+                  <h3 className="text-lg font-bold text-white leading-snug">{step.title}</h3>
                   <p className="text-sm text-neutral-400">{step.description}</p>
                 </div>
               </Card>
@@ -500,9 +632,9 @@ function ProductScan() {
               { icon: "❤️", title: "Heart Health", desc: "Control sodium and fats" },
               { icon: "🌱", title: "Clean Eating", desc: "Avoid additives and processing" }
             ].map((useCase, idx) => (
-              <div key={idx} className="bg-gradient-to-br from-white/5 to-white/0 border border-white/10 rounded-xl p-6 hover:border-emerald-400/30 transition-colors">
-                <div className="text-4xl mb-3">{useCase.icon}</div>
-                <h3 className="text-lg font-bold text-white mb-2">{useCase.title}</h3>
+              <div key={idx} className="bg-gradient-to-br from-white/5 to-white/0 border border-white/10 rounded-xl p-6 hover:border-emerald-400/30 hover:bg-white/10 transition-all">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-white/10 border border-white/15 text-2xl mb-3">{useCase.icon}</div>
+                <h3 className="text-lg font-bold text-white mb-2 leading-snug">{useCase.title}</h3>
                 <p className="text-sm text-neutral-400">{useCase.desc}</p>
               </div>
             ))}

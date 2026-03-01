@@ -5,15 +5,27 @@
 export function formatExplanation(text) {
   if (!text) return null;
 
-  // Split by common section markers
+  // Split into lines and parse markdown-like sections and bullets
   const sections = [];
   const lines = text.split('\n');
-  
   let currentSection = { title: '', content: [] };
-  
+
+  const pushCurrentSection = () => {
+    if (currentSection.title || currentSection.content.length > 0) {
+      sections.push({ ...currentSection });
+    }
+  };
+
+  const cleanInlineMarkdown = (value) => {
+    return value
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .trim();
+  };
+
   lines.forEach(line => {
     const trimmed = line.trim();
-    
+
     // Skip empty lines
     if (!trimmed) {
       if (currentSection.content.length > 0) {
@@ -21,39 +33,45 @@ export function formatExplanation(text) {
       }
       return;
     }
-    
-    // Detect section headers (lines starting with *   ** or bullet points)
-    if (trimmed.startsWith('*   **') || trimmed.startsWith('**')) {
-      // Save previous section
-      if (currentSection.title || currentSection.content.length > 0) {
-        sections.push({ ...currentSection });
+
+    // Detect markdown heading: ## Title
+    if (trimmed.startsWith('## ')) {
+      pushCurrentSection();
+      currentSection = {
+        title: cleanInlineMarkdown(trimmed.replace(/^##\s+/, '')),
+        content: []
+      };
+      return;
+    }
+
+    // Detect bold heading: **Title**
+    if (/^\*\*[^*]+\*\*$/.test(trimmed)) {
+      pushCurrentSection();
+      currentSection = {
+        title: cleanInlineMarkdown(trimmed),
+        content: []
+      };
+      return;
+    }
+
+    // Detect bullet item
+    if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+      const bulletText = cleanInlineMarkdown(trimmed.replace(/^[-•]\s+/, ''));
+      if (bulletText) {
+        currentSection.content.push({ type: 'bullet', text: bulletText });
       }
-      
-      // Extract title between ** markers
-      const titleMatch = trimmed.match(/\*\*([^*]+)\*\*/);
-      if (titleMatch) {
-        currentSection = { title: titleMatch[1].trim(), content: [] };
-      }
-    } 
-    // Regular content line
-    else {
-      // Clean up markdown formatting
-      let cleanLine = trimmed
-        .replace(/^\*\s*/, '') // Remove leading asterisk
-        .replace(/\*\*/g, '') // Remove bold markers
-        .trim();
-      
-      if (cleanLine) {
-        currentSection.content.push({ type: 'text', text: cleanLine });
-      }
+      return;
+    }
+
+    const cleanLine = cleanInlineMarkdown(trimmed);
+    if (cleanLine) {
+      currentSection.content.push({ type: 'text', text: cleanLine });
     }
   });
-  
+
   // Add last section
-  if (currentSection.title || currentSection.content.length > 0) {
-    sections.push(currentSection);
-  }
-  
+  pushCurrentSection();
+
   return sections.filter(s => s.title || s.content.length > 0);
 }
 

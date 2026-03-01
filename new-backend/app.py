@@ -1,9 +1,16 @@
 import logging
+from pathlib import Path
+
+from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import uvicorn
+
+# Ensure environment variables are loaded regardless of launch directory
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=BASE_DIR / ".env", override=False)
 
 from pipeline import analyze_text, analyze_image
 
@@ -31,14 +38,15 @@ class TextAnalysisRequest(BaseModel):
     """Request model for text-based analysis."""
     label_text: str
     mode: str = "general"
-    
-    class Config:
-        json_schema_extra = {
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "label_text": "Nutrition Facts\nServing Size: 100g\nCalories: 250\nFat: 5g\nProtein: 10g",
-                "mode": "weight_loss"
+                "mode": "weight_loss",
             }
         }
+    )
 
 
 @app.get("/health")

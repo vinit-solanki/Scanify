@@ -9,7 +9,7 @@ A production-ready FastAPI backend for food label analysis with OCR, nutrition p
 - **Semantic Analysis**: Detect allergens, additives, and processing indicators
 - **Health Scoring**: Calculate personalized health scores based on nutritional content
 - **Multiple Modes**: Support for general, weight loss, and diabetes management modes
-- **AI Explanations**: Generate detailed explanations using Google Gemini (optional)
+- **AI Explanations**: Generate detailed explanations using OpenRouter (optional)
 - **CORS Enabled**: Works seamlessly with frontend applications
 - **Error Handling**: Comprehensive error handling and validation
 
@@ -81,8 +81,10 @@ FLASK_ENV=development
 TESSERACT_PATH=C:\Program Files\Tesseract-OCR\tesseract.exe
 OCR_ENGINE=tesseract
 
-# Google Gemini API (Optional - for AI explanations)
-GEMINI_API_KEY=your_api_key_here
+# OpenRouter API (Optional - for AI explanations)
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+OPENROUTER_MODEL=openai/gpt-4o-mini
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 
 # Upload Configuration
 UPLOAD_FOLDER=uploads
@@ -257,9 +259,9 @@ FileNotFoundError: tesseract is not installed
 - Avoid skewed or rotated text
 - Use high-resolution images (300+ DPI recommended)
 
-### Gemini API Errors
-- Verify `GEMINI_API_KEY` is correct
-- Check API quota and billing
+### OpenRouter API Errors
+- Verify `OPENROUTER_API_KEY` is correct
+- Check provider/model limits and billing in your OpenRouter dashboard
 - Backend falls back to rule-based explanations if API unavailable
 
 ## Integration with Frontend
@@ -278,7 +280,7 @@ const transformed = transformAnalysisToScanResult(data);
 ### Docker (if using Docker)
 ```bash
 docker build -t scanify-backend .
-docker run -p 5000:5000 -e GEMINI_API_KEY=<key> scanify-backend
+docker run -p 5000:5000 -e OPENROUTER_API_KEY=<key> scanify-backend
 ```
 
 ### Render.com / Heroku

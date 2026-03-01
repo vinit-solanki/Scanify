@@ -1,119 +1,250 @@
 import os
 import logging
-from typing import Dict
+import time
+from typing import Dict, Any
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
+OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+OPENROUTER_TIMEOUT_SECONDS = max(int(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "15")), 1)
+OPENROUTER_QUOTA_COOLDOWN_SECONDS = max(int(os.getenv("OPENROUTER_QUOTA_COOLDOWN_SECONDS", "120")), 1)
+OPENROUTER_SITE_URL = (os.getenv("OPENROUTER_SITE_URL") or "").strip()
+OPENROUTER_SITE_NAME = (os.getenv("OPENROUTER_SITE_NAME") or "Scanify").strip()
 
-def _rule_based_explanation(ctx: Dict, mode: str) -> str:
-    """Generate explanation without LLM using simple rules."""
-    ing = ctx.get("ingredients") or []
-    nutr_per_100g = ctx.get("nutrition_per_100g") or ctx.get("nutrition") or {}
-    recommendations = ctx.get("risks") or ctx.get("recommendations") or []
-    score = ctx.get("score", 50)
-    category = ctx.get("health_category", "Unknown")
-    
-    lines = []
-    
-    # Header
-    lines.append(f"**Health Analysis: {category}** | Score: {score}/100")
-    
-    # Key ingredients summary
-    if ing:
-        ing_preview = ", ".join(ing[:5])
-        if len(ing) > 5:
-            ing_preview += f", and {len(ing)-5} more"
-        lines.append(f"\n**Key Ingredients:** {ing_preview}")
-    
-    # Nutrition summary
-    nutr_items = []
-    if nutr_per_100g.get("calories"):
-        nutr_items.append(f"Calories: {nutr_per_100g.get('calories')} kcal")
-    if nutr_per_100g.get("protein_g"):
-        nutr_items.append(f"Protein: {nutr_per_100g.get('protein_g')}g")
-    if nutr_per_100g.get("sugars_g"):
-        nutr_items.append(f"Sugars: {nutr_per_100g.get('sugars_g')}g")
-    if nutr_per_100g.get("dietary_fiber_g"):
-        nutr_items.append(f"Fiber: {nutr_per_100g.get('dietary_fiber_g')}g")
-    
-    if nutr_items:
-        lines.append(f"\n**Nutrition (per 100g):** {' | '.join(nutr_items)}")
-    
-    # Recommendations
-    if recommendations:
-        lines.append(f"\n**Recommendations:**")
-        for rec in recommendations:
-            if isinstance(rec, dict):
-                lines.append(f"• {rec.get('reason', rec)}")
-            else:
-                lines.append(f"• {rec}")
-    
-    # Mode-specific advice
-    if mode == "diabetes":
-        lines.append("\n**Diabetes-Focused Advice:** Focus on limiting sugar and refined carbohydrates. Choose products with more fiber and whole grains.")
-    elif mode == "weight_loss":
-        lines.append("\n**Weight Loss Advice:** Consider calorie intake and nutrient density. Prioritize high-protein, high-fiber options for better satiety.")
-    
-    return "\n".join(lines)
+_openrouter_cooldown_until = 0.0
 
 
-def generate_explanation(ctx: Dict, mode: str) -> str:
-    """
-    Generate a detailed explanation of the analysis.
-    Attempts to use Gemini API if available, falls back to rule-based explanation.
-    """
-    api_key = os.getenv("GEMINI_API_KEY")
-    
-    # If no API key, use rule-based explanation
-    if not api_key:
-        logger.info("GEMINI_API_KEY not configured, using rule-based explanation")
-        return _rule_based_explanation(ctx, mode)
-    
+def _fmt_num(value: Any, suffix: str = "") -> str:
     try:
-        import google.generativeai as genai
-        
-        genai.configure(api_key=api_key)
-        
-        # Prepare context for LLM
-        ing = ctx.get("ingredients") or []
-        nutr = ctx.get("nutrition_per_100g") or {}
-        allergens = ctx.get("allergens") or []
-        additives = ctx.get("additives") or []
-        recommendations = ctx.get("recommendations") or []
-        score = ctx.get("score", 0)
-        
-        prompt = f"""You are a nutrition assistant. Analyze this food product and provide a concise, helpful explanation.
+        if value is None or value == "N/A":
+            return "N/A"
+        num = float(value)
+        if num.is_integer():
+            return f"{int(num)}{suffix}"
+        return f"{num:.1f}{suffix}"
+    except Exception:
+        return f"{value}{suffix}" if value is not None else "N/A"
 
-Product Mode: {mode.upper()}
+
+def _mode_label(mode: str) -> str:
+    if mode == "weight_loss":
+        return "Weight Loss"
+    if mode == "diabetes":
+        return "Diabetes"
+    return "General"
+
+
+def _build_prompt(ctx: Dict, mode: str) -> str:
+    ing = ctx.get("ingredients") or []
+    nutr = ctx.get("nutrition_per_100g") or {}
+    allergens = ctx.get("allergens") or []
+    additives = ctx.get("additives") or []
+    recommendations = ctx.get("recommendations") or []
+    score = _fmt_num(ctx.get("score", 0))
+    category = ctx.get("health_category", "Unknown")
+
+    return f"""You are a nutrition assistant for packaged food labels.
+
+Use ONLY the provided values. Do not invent missing values. Do not provide diagnosis, treatment, or medical guarantees.
+
+Product Mode: {_mode_label(mode)}
 Health Score: {score}/100
+Health Category: {category}
 
 Ingredients: {', '.join(ing) if ing else 'Not extracted'}
 Allergens: {', '.join(allergens) if allergens else 'None detected'}
 Additives: {', '.join(additives) if additives else 'None detected'}
 
 Nutrition per 100g:
-- Calories: {nutr.get('calories', 'N/A')}
-- Protein: {nutr.get('protein_g', 'N/A')}g
-- Sugars: {nutr.get('sugars_g', 'N/A')}g
-- Fiber: {nutr.get('dietary_fiber_g', 'N/A')}g
-- Fat: {nutr.get('fat_g', 'N/A')}g
-- Saturated Fat: {nutr.get('saturated_fat_g', 'N/A')}g
+- Calories: {_fmt_num(nutr.get('calories'))} kcal
+- Protein: {_fmt_num(nutr.get('protein_g'), 'g')}
+- Sugars: {_fmt_num(nutr.get('sugars_g'), 'g')}
+- Fiber: {_fmt_num(nutr.get('dietary_fiber_g'), 'g')}
+- Fat: {_fmt_num(nutr.get('total_fat_g', nutr.get('fat_g')), 'g')}
+- Saturated Fat: {_fmt_num(nutr.get('saturated_fat_g'), 'g')}
+- Sodium: {_fmt_num(nutr.get('sodium_mg'), 'mg')}
 
-Key Concerns: {'; '.join(recommendations) if recommendations else 'None'}
+Scoring Concerns: {'; '.join(recommendations) if recommendations else 'None'}
 
-Provide a brief, factual explanation (2-3 sentences) of the nutritional quality for the {mode} mode, citing actual values. Then give 1-2 actionable recommendations. Be concise and helpful."""
-        
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt, timeout=10)
-        
-        explanation = getattr(response, "text", None)
-        if explanation:
-            logger.info("Generated explanation with Gemini")
-            return explanation
+Return markdown in EXACTLY this structure:
+
+## Summary
+2-4 sentences explaining overall nutritional quality for the selected mode using concrete values.
+
+## Key Positives
+- 2-4 bullets with numeric evidence where available.
+
+## Key Concerns
+- 2-4 bullets with numeric evidence where available.
+
+## Recommendations
+- 3 specific, practical actions tied to the above concerns.
+
+## Confidence Note
+One short sentence describing any uncertainty from missing values/OCR limits.
+"""
+
+
+def _rule_based_explanation(ctx: Dict, mode: str) -> str:
+    """Generate structured explanation without LLM using deterministic rules."""
+    ing = ctx.get("ingredients") or []
+    nutr_per_100g = ctx.get("nutrition_per_100g") or ctx.get("nutrition") or {}
+    recommendations = ctx.get("risks") or ctx.get("recommendations") or []
+    score = ctx.get("score", 50)
+    category = ctx.get("health_category", "Unknown")
+
+    calories = nutr_per_100g.get("calories")
+    protein = nutr_per_100g.get("protein_g")
+    sugar = nutr_per_100g.get("sugars_g")
+    fiber = nutr_per_100g.get("dietary_fiber_g")
+    fat = nutr_per_100g.get("total_fat_g", nutr_per_100g.get("fat_g"))
+    sodium = nutr_per_100g.get("sodium_mg")
+
+    positives = []
+    concerns = []
+
+    if protein is not None and float(protein) >= 10:
+        positives.append(f"Protein is relatively strong at {_fmt_num(protein, 'g')} per 100g.")
+    if fiber is not None and float(fiber) >= 5:
+        positives.append(f"Fiber is supportive at {_fmt_num(fiber, 'g')} per 100g.")
+    if sugar is not None and float(sugar) <= 5:
+        positives.append(f"Sugar is on the lower side at {_fmt_num(sugar, 'g')} per 100g.")
+
+    if calories is not None and float(calories) > 250:
+        concerns.append(f"Calories are elevated at {_fmt_num(calories)} kcal per 100g.")
+    if sugar is not None and float(sugar) > 10:
+        concerns.append(f"Sugar is relatively high at {_fmt_num(sugar, 'g')} per 100g.")
+    if fat is not None and float(fat) > 15:
+        concerns.append(f"Fat is relatively high at {_fmt_num(fat, 'g')} per 100g.")
+    if sodium is not None and float(sodium) > 600:
+        concerns.append(f"Sodium is high at {_fmt_num(sodium, 'mg')} per 100g.")
+
+    if not positives:
+        positives.append("Nutritional profile has some useful components, but data is limited.")
+    if not concerns:
+        concerns.append("No major red flags were detected from the extracted values.")
+
+    ing_preview = ", ".join(ing[:8]) if ing else "Not extracted"
+    if len(ing) > 8:
+        ing_preview += f", and {len(ing)-8} more"
+
+    rec_lines = []
+    for rec in recommendations[:3]:
+        if isinstance(rec, dict):
+            rec_lines.append(f"- {rec.get('reason', str(rec))}")
         else:
-            logger.warning("Gemini returned empty response")
-            return _rule_based_explanation(ctx, mode)
+            rec_lines.append(f"- {rec}")
+
+    if len(rec_lines) < 3:
+        if mode == "diabetes":
+            rec_lines.extend([
+                "- Prefer options with lower sugar and lower refined carbohydrate content.",
+                "- Pair with high-fiber foods to improve glycemic response.",
+            ])
+        elif mode == "weight_loss":
+            rec_lines.extend([
+                "- Prioritize options with higher protein and fiber for satiety.",
+                "- Keep portions moderate if calories are high per 100g.",
+            ])
+        else:
+            rec_lines.extend([
+                "- Compare with similar products and choose lower sugar/sodium options.",
+                "- Prefer shorter ingredient lists with fewer additives.",
+            ])
+    rec_lines = rec_lines[:3]
+
+    lines = [
+        "## Summary",
+        f"This product is rated **{category}** with a health score of **{_fmt_num(score)}/100** for **{_mode_label(mode)}** mode.",
+        f"Key extracted ingredients include: {ing_preview}.",
+        f"Per 100g snapshot: calories {_fmt_num(calories)}, protein {_fmt_num(protein, 'g')}, sugars {_fmt_num(sugar, 'g')}, fiber {_fmt_num(fiber, 'g')}, fat {_fmt_num(fat, 'g')}.",
+        "",
+        "## Key Positives",
+        *[f"- {item}" for item in positives[:4]],
+        "",
+        "## Key Concerns",
+        *[f"- {item}" for item in concerns[:4]],
+        "",
+        "## Recommendations",
+        *rec_lines,
+        "",
+        "## Confidence Note",
+        "This explanation is based on OCR/parsing output; missing or unclear label fields can reduce precision.",
+    ]
+
+    return "\n".join(lines)
+
+
+def generate_explanation(ctx: Dict, mode: str) -> str:
+    """
+    Generate a detailed explanation of the analysis.
+    Attempts to use OpenRouter API if available, falls back to rule-based explanation.
+    """
+    global _openrouter_cooldown_until
+    api_key = os.getenv("OPENROUTER_API_KEY")
     
-    except Exception as e:
-        logger.warning(f"Error calling Gemini API: {str(e)}, using rule-based explanation")
+    # If no API key, use rule-based explanation
+    if not api_key:
+        logger.info("OPENROUTER_API_KEY not configured, using rule-based explanation")
         return _rule_based_explanation(ctx, mode)
+
+    if time.time() < _openrouter_cooldown_until:
+        logger.info("OpenRouter temporarily disabled due to recent quota exhaustion; using rule-based explanation")
+        return _rule_based_explanation(ctx, mode)
+
+    prompt = _build_prompt(ctx, mode)
+    
+    try:
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        if OPENROUTER_SITE_URL:
+            headers["HTTP-Referer"] = OPENROUTER_SITE_URL
+        if OPENROUTER_SITE_NAME:
+            headers["X-Title"] = OPENROUTER_SITE_NAME
+
+        payload = {
+            "model": OPENROUTER_MODEL,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a nutrition assistant. Be factual, concise, and avoid diagnosis/treatment claims.",
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            "temperature": 0.3,
+            "max_tokens": 420,
+        }
+
+        response = httpx.post(
+            f"{OPENROUTER_BASE_URL}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=OPENROUTER_TIMEOUT_SECONDS,
+        )
+
+        if response.status_code == 429:
+            _openrouter_cooldown_until = time.time() + OPENROUTER_QUOTA_COOLDOWN_SECONDS
+            logger.warning("OpenRouter quota/rate limit exceeded; using rule-based explanation")
+            return _rule_based_explanation(ctx, mode)
+
+        response.raise_for_status()
+        data = response.json()
+        explanation = data.get("choices", [{}])[0].get("message", {}).get("content")
+
+        if explanation:
+            logger.info("Generated explanation with OpenRouter")
+            return explanation.strip()
+
+        logger.warning("OpenRouter returned empty response")
+    except Exception as e:
+        logger.warning("OpenRouter call failed: %s", str(e))
+
+    return _rule_based_explanation(ctx, mode)

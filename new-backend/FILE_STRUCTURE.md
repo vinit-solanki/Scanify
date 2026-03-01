@@ -129,7 +129,7 @@ new-backend/
   - `generate_explanation()` - Main explanation function
   - `_rule_based_explanation()` - Fallback explanation
 - **Key Features**:
-  - Google Gemini integration (optional)
+  - OpenRouter integration (optional)
   - Fallback rule-based system
   - Context-aware explanations
   - Mode-specific advice
@@ -230,7 +230,7 @@ pillow>=10.0.0
 pytesseract>=0.3.10
 pydantic>=2.6.0
 python-dotenv>=1.0.0
-google-generativeai>=0.3.0
+httpx>=0.27.0
 ```
 
 ### .env (Development)
@@ -238,7 +238,7 @@ google-generativeai>=0.3.0
 PORT=5000
 FLASK_ENV=development
 TESSERACT_PATH=/path/to/tesseract
-GEMINI_API_KEY=<optional>
+OPENROUTER_API_KEY=<optional>
 ```
 
 ### .env.example
@@ -281,19 +281,10 @@ JSON Response to Frontend
 ## ✨ Key Features Implemented
 
 ✅ **Text Analysis**
-- Nutrition facts parsing
-- Ingredient extraction
-- Semantic analysis
 
 ✅ **Image Analysis**
-- Tesseract OCR
-- Image preprocessing
-- Error handling
 
 ✅ **Semantic Understanding**
-- Allergen detection
-- Additive detection
-- Processing indicators
 
 ✅ **Health Scoring**
 - Mode-specific scoring
@@ -301,7 +292,7 @@ JSON Response to Frontend
 - Recommendations
 
 ✅ **AI Features**
-- Gemini integration (optional)
+- OpenRouter integration (optional)
 - Rule-based fallback
 - Markdown formatting
 
