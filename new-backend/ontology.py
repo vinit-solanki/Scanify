@@ -38,9 +38,21 @@ TAG_RULES = {
     "artificial_sweeteners": ["sucralose", "aspartame", "acesulfame", "saccharin"],
     "trans_fat": ["hydrogenated", "partially hydrogenated"],
     "saturated_fat": ["palm oil", "coconut oil", "shortening"],
-    "refined_grains": ["enriched flour", "wheat flour", "refined"],
+    "refined_grains": ["enriched flour", "wheat flour", "refined", "corn flour", "rice flour"],
+    "refined_starch": ["corn starch", "modified starch", "maltodextrin", "dextrose"],
+    "seed_oils": ["canola oil", "soybean oil", "sunflower oil", "safflower oil", "corn oil", "vegetable oil"],
     "msg": ["monosodium glutamate", "msg"],
     "high_sodium": ["salt", "sodium"],
+    "artificial_colors": ["red 40", "yellow 5", "yellow 6", "blue 1", "fd&c", "artificial color"],
+    "artificial_flavors": ["artificial flavor"],
+    "ultra_processed": [
+        "maltodextrin",
+        "monosodium glutamate",
+        "artificial flavor",
+        "artificial color",
+        "modified starch",
+        "corn syrup",
+    ],
 }
 
 

@@ -91,6 +91,7 @@ def analyze_text(label_text: str, mode: str = "general") -> Dict:
                 "allergens": allergens,
                 "additives": additives,
                 "risks": health_analysis_dict.get("recommendations", []),
+                "recommendations": health_analysis_dict.get("recommendations", []),
                 "score": health.health_score,
                 "health_category": health.health_category,
             },

@@ -11,11 +11,11 @@ def _get(d: Dict[str, float], key: str, default: float = 0.0) -> float:
 
 def _get_health_category(score: float) -> str:
     """Categorize health score into meaningful categories."""
-    if score >= 80:
+    if score >= 85:
         return "Excellent"
-    elif score >= 60:
+    elif score >= 65:
         return "Good"
-    elif score >= 40:
+    elif score >= 45:
         return "Fair"
     else:
         return "Poor"
@@ -104,6 +104,31 @@ def score(
             penalties["high_sat_fat"] = penalty
             reasons.append({"metric": "sat_fat", "reason": f">10g saturated fat (found {sat_fat}g)"})
 
+        # Processing penalties still matter for diabetes-friendly choices
+        if "ultra_processed" in tags:
+            penalty = 12
+            score -= penalty
+            penalties["ultra_processed"] = penalty
+            reasons.append({"metric": "processing", "reason": "ultra-processed ingredient pattern detected"})
+
+        if "seed_oils" in tags:
+            penalty = 4
+            score -= penalty
+            penalties["seed_oils"] = penalty
+            reasons.append({"metric": "ingredients", "reason": "multiple refined vegetable/seed oils detected"})
+
+        if "artificial_colors" in tags or "artificial_flavors" in tags:
+            penalty = 6
+            score -= penalty
+            penalties["artificial_additives"] = penalty
+            reasons.append({"metric": "ingredients", "reason": "artificial additives/flavors detected"})
+
+        if "msg" in tags:
+            penalty = 4
+            score -= penalty
+            penalties["msg"] = penalty
+            reasons.append({"metric": "ingredients", "reason": "flavor enhancer (MSG) detected"})
+
     else:  # weight_loss (default)
         # Calories are the main concern
         if calories > 400:
@@ -165,6 +190,54 @@ def score(
             penalties["refined_grains"] = penalty
             reasons.append({"metric": "tags", "reason": "refined grains"})
 
+        if "refined_starch" in tags:
+            penalty = 8
+            score -= penalty
+            penalties["refined_starch"] = penalty
+            reasons.append({"metric": "ingredients", "reason": "refined starches/simple fillers detected"})
+
+        if "high_sodium" in tags and sodium_mg > 500:
+            penalty = 10
+            score -= penalty
+            penalties["high_sodium"] = penalty
+            reasons.append({"metric": "sodium", "reason": f">500mg sodium (found {sodium_mg}mg)"})
+
+        if "seed_oils" in tags:
+            penalty = 6
+            score -= penalty
+            penalties["seed_oils"] = penalty
+            reasons.append({"metric": "ingredients", "reason": "multiple refined vegetable/seed oils detected"})
+
+        if "artificial_colors" in tags or "artificial_flavors" in tags:
+            penalty = 8
+            score -= penalty
+            penalties["artificial_additives"] = penalty
+            reasons.append({"metric": "ingredients", "reason": "artificial additives/flavors detected"})
+
+        if "msg" in tags:
+            penalty = 5
+            score -= penalty
+            penalties["msg"] = penalty
+            reasons.append({"metric": "ingredients", "reason": "flavor enhancer (MSG) detected"})
+
+        if "ultra_processed" in tags:
+            penalty = 15
+            score -= penalty
+            penalties["ultra_processed"] = penalty
+            reasons.append({"metric": "processing", "reason": "ultra-processed ingredient pattern detected"})
+
+    # Gating rule: excellent rating requires low-risk profile beyond raw score.
+    high_risk_flags = {
+        "high_calories",
+        "high_fat",
+        "high_sugars",
+        "high_sodium",
+        "ultra_processed",
+        "artificial_additives",
+    }
+    if score >= 85 and any(flag in penalties for flag in high_risk_flags):
+        score = min(score, 79.9)
+
     # Ensure score is within bounds
     if score < 0:
         score = 0.0
@@ -184,6 +257,15 @@ def analyze_health(
     health_category = _get_health_category(score_value)
     
     recommendations = []
+
+    if "ultra_processed" in penalties:
+        recommendations.append("This appears ultra-processed; use as occasional food rather than daily staple")
+
+    if "high_sodium" in penalties:
+        recommendations.append("Sodium is high; balance with lower-sodium meals during the day")
+
+    if "high_sugars" in penalties:
+        recommendations.append("Limit frequent intake due to sugar load")
     if score_value < 40:
         if mode == "diabetes":
             recommendations.append("Reduce sugar and carbohydrate intake significantly")
@@ -200,7 +282,7 @@ def analyze_health(
         recommendations.append("Look for products with more protein")
     
     if not recommendations:
-        recommendations.append("Good nutritional profile")
+        recommendations.append("Nutritional profile is relatively balanced for this mode")
     
     return {
         "health_score": score_value,

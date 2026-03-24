@@ -50,7 +50,7 @@ NUTRIENT_MAP = {
     "saturated_fat_g": ["saturated fat", "sat. fat", "saturated"],
     "trans_fat_g": ["trans fat", "trans"],
     "cholesterol_mg": ["cholesterol"],
-    "sodium_mg": ["sodium", "salt", "na"],
+    "sodium_mg": ["sodium"],
     "carbohydrate_g": ["total carbohydrate", "carbohydrate", "carbs", "carbohydrates"],
     "dietary_fiber_g": ["dietary fiber", "fiber", "fibre"],
     "sugars_g": ["total sugars", "sugars", "sugar"],
@@ -73,6 +73,14 @@ def _extract_value(line: str) -> Tuple[float, str]:
     val = float(m.group(1))
     unit = (m.group(2) or "").lower()
     return val, unit
+
+
+def _line_matches_alias(line: str, alias: str) -> bool:
+    """Check whether a nutrient alias appears in a line as a standalone phrase."""
+    line_norm = f" {line.lower()} "
+    alias_norm = alias.lower().strip()
+    pattern = r"\b" + re.escape(alias_norm) + r"\b"
+    return re.search(pattern, line_norm) is not None
 
 
 def _parse_serving_size(text: str) -> Optional[Tuple[float, str]]:
@@ -116,9 +124,14 @@ def parse_nutrition(text: str) -> Dict[str, float]:
     # Line-by-line scan for nutrients
     for line in lower.splitlines():
         line = _clean(line)
+        if not line:
+            continue
+
         for key, aliases in NUTRIENT_MAP.items():
-            if any(a in line for a in aliases):
+            if any(_line_matches_alias(line, alias) for alias in aliases):
                 val, unit = _extract_value(line)
+                if val == 0.0:
+                    continue
                 
                 # Special handling for sodium (keep in mg)
                 if key == "sodium_mg":
