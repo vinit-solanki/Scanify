@@ -523,6 +523,9 @@ function ProductScan() {
                           <div>
                             <p className="text-2xl font-bold text-white">{scanResult.category}</p>
                             <p className="text-xs text-neutral-400 mt-1">Overall Rating</p>
+                            <p className={`text-xs mt-1 font-semibold ${getHealthColor(scanResult.category).text}`}>
+                              {getHealthColor(scanResult.category).action}
+                            </p>
                           </div>
                         </div>
                       </div>

@@ -80,6 +80,17 @@ export function formatExplanation(text) {
  */
 export function getHealthColor(category) {
   const categoryLower = (category || '').toLowerCase();
+
+  if (categoryLower.includes('excellent')) {
+    return {
+      gradient: 'from-emerald-500 to-green-500',
+      bg: 'bg-emerald-500/10',
+      border: 'border-emerald-500/30',
+      text: 'text-emerald-300',
+      icon: '🟢',
+      action: 'Best for regular use'
+    };
+  }
   
   if (categoryLower.includes('healthy') || categoryLower.includes('good')) {
     return {
@@ -87,26 +98,40 @@ export function getHealthColor(category) {
       bg: 'bg-green-500/10',
       border: 'border-green-500/30',
       text: 'text-green-300',
-      icon: '✅'
+      icon: '🟢',
+      action: 'Generally a good choice'
     };
   }
   
-  if (categoryLower.includes('moderate') || categoryLower.includes('average')) {
+  if (categoryLower.includes('fair') || categoryLower.includes('moderate') || categoryLower.includes('average')) {
     return {
       gradient: 'from-yellow-500 to-orange-500',
       bg: 'bg-yellow-500/10',
       border: 'border-yellow-500/30',
       text: 'text-yellow-300',
-      icon: '⚠️'
+      icon: '🟡',
+      action: 'Okay occasionally'
+    };
+  }
+
+  if (categoryLower.includes('poor') || categoryLower.includes('unhealthy') || categoryLower.includes('harmful')) {
+    return {
+      gradient: 'from-red-500 to-rose-500',
+      bg: 'bg-red-500/10',
+      border: 'border-red-500/30',
+      text: 'text-red-300',
+      icon: '🔴',
+      action: 'Limit or avoid'
     };
   }
   
-  // Harmful, Unhealthy, etc.
+  // Unknown fallback
   return {
-    gradient: 'from-red-500 to-rose-500',
-    bg: 'bg-red-500/10',
-    border: 'border-red-500/30',
-    text: 'text-red-300',
-    icon: '🚫'
+    gradient: 'from-neutral-500 to-neutral-700',
+    bg: 'bg-neutral-500/10',
+    border: 'border-neutral-500/30',
+    text: 'text-neutral-300',
+    icon: '❔',
+    action: 'Needs more data'
   };
 }

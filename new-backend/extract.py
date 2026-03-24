@@ -67,12 +67,27 @@ UNIT_MULTIPLIERS = {
 
 def _extract_value(line: str) -> Tuple[float, str]:
     """Extract numeric value and unit from a string."""
-    m = re.search(r"(\d+(?:\.\d+)?)\s*([a-zA-Z%]+)?", line)
+    m = re.search(r"(\d[\d,]*(?:\.\d+)?)\s*([a-zA-Z%]+)?", line)
     if not m:
         return 0.0, ""
-    val = float(m.group(1))
+    raw = m.group(1).replace(",", "")
+    val = float(raw)
     unit = (m.group(2) or "").lower()
     return val, unit
+
+
+def _is_end_of_nutrition_block(line: str) -> bool:
+    """Heuristic section boundaries to avoid parsing daily-value reference tables."""
+    line_l = line.lower().strip()
+    if not line_l:
+        return False
+    return (
+        line_l.startswith("ingredients")
+        or line_l.startswith("contains")
+        or "percent daily values" in line_l
+        or "daily values are based" in line_l
+        or line_l.startswith("calories per gram")
+    )
 
 
 def _line_matches_alias(line: str, alias: str) -> bool:
@@ -85,21 +100,38 @@ def _line_matches_alias(line: str, alias: str) -> bool:
 
 def _parse_serving_size(text: str) -> Optional[Tuple[float, str]]:
     """Parse serving size from text. Returns (grams, description) or None."""
-    lower = text.lower()
-    m_serv = re.search(r"serving size\s*[:\-]?\s*([^\n]+)", lower)
+    m_serv = re.search(r"serving\s*size\s*[:\-]?\s*([^\n]+)", text, re.IGNORECASE)
     if not m_serv:
         return None
-    
+
     serving_str = m_serv.group(1).strip()
-    # Try to extract grams/ml from serving size
-    m = re.search(r"(\d+(?:\.\d+)?)\s*([a-z]+)", serving_str)
+
+    # Prefer explicit gram/ml value when present anywhere in the serving phrase
+    m_g_ml = re.search(
+        r"(\d+(?:\.\d+)?)\s*(g|gram|grams|ml|milliliter|milliliters)\b",
+        serving_str,
+        re.IGNORECASE,
+    )
+    if m_g_ml:
+        val = float(m_g_ml.group(1))
+        unit = m_g_ml.group(2).lower()
+        if unit in ("g", "gram", "grams"):
+            return (val, serving_str)
+        # For beverages and many liquid labels, use 1ml ~= 1g
+        return (val, serving_str)
+
+    # Fall back to ounce conversion if grams are not explicitly available
+    m_oz = re.search(r"(\d+(?:\.\d+)?)\s*(oz|ounce|ounces)\b", serving_str, re.IGNORECASE)
+    if m_oz:
+        val_oz = float(m_oz.group(1))
+        return (val_oz * 28.3495, serving_str)
+
+    # Generic fallback for edge cases where unit appears without spacing
+    m = re.search(r"(\d+(?:\.\d+)?)\s*([a-z]+)", serving_str, re.IGNORECASE)
     if m:
         val = float(m.group(1))
         unit = m.group(2).lower()
-        if unit in ("g", "gram", "grams"):
-            return (val, serving_str)
-        elif unit in ("ml", "milliliter", "milliliters"):
-            # For beverages, assume 1ml = 1g
+        if unit in ("g", "gram", "grams", "ml", "milliliter", "milliliters"):
             return (val, serving_str)
     return None
 
@@ -127,8 +159,21 @@ def parse_nutrition(text: str) -> Dict[str, float]:
         if not line:
             continue
 
+        # Stop once we leave the main nutrition facts block.
+        if _is_end_of_nutrition_block(line):
+            break
+
         for key, aliases in NUTRIENT_MAP.items():
+            # Keep the first plausible hit for each nutrient to avoid
+            # overwriting with daily-value reference rows later in text.
+            if key in res:
+                continue
+
             if any(_line_matches_alias(line, alias) for alias in aliases):
+                # Avoid mapping saturated/trans fat lines to total fat when alias is generic 'fat'.
+                if key == "total_fat_g" and ("saturated fat" in line or "trans fat" in line):
+                    continue
+
                 val, unit = _extract_value(line)
                 if val == 0.0:
                     continue

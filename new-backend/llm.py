@@ -43,8 +43,10 @@ def _build_prompt(ctx: Dict, mode: str) -> str:
     allergens = ctx.get("allergens") or []
     additives = ctx.get("additives") or []
     recommendations = ctx.get("recommendations") or []
+    penalties = ctx.get("penalties") or {}
     score = _fmt_num(ctx.get("score", 0))
     category = ctx.get("health_category", "Unknown")
+    serving_desc = ctx.get("serving_size_description") or "Not extracted"
 
     return f"""You are a nutrition assistant for packaged food labels.
 
@@ -53,6 +55,7 @@ Use ONLY the provided values. Do not invent missing values. Do not provide diagn
 Product Mode: {_mode_label(mode)}
 Health Score: {score}/100
 Health Category: {category}
+Serving Size: {serving_desc}
 
 Ingredients: {', '.join(ing) if ing else 'Not extracted'}
 Allergens: {', '.join(allergens) if allergens else 'None detected'}
@@ -68,11 +71,13 @@ Nutrition per 100g:
 - Sodium: {_fmt_num(nutr.get('sodium_mg'), 'mg')}
 
 Scoring Concerns: {'; '.join(recommendations) if recommendations else 'None'}
+Penalty Flags: {', '.join(sorted(penalties.keys())) if penalties else 'None'}
 
 Return markdown in EXACTLY this structure:
 
 ## Summary
-2-4 sentences explaining overall nutritional quality for the selected mode using concrete values.
+Start with one decision phrase in the first sentence: "Best for regular use", "Okay occasionally", or "Limit/Avoid".
+Then write 2-4 sentences explaining overall nutritional quality for the selected mode using concrete values.
 
 ## Key Positives
 - 2-4 bullets with numeric evidence where available.
@@ -84,7 +89,13 @@ Return markdown in EXACTLY this structure:
 - 3 specific, practical actions tied to the above concerns.
 
 ## Confidence Note
-One short sentence describing any uncertainty from missing values/OCR limits.
+One short sentence describing uncertainty from missing values/OCR limits.
+
+Hard constraints:
+- Keep the judgment mode-specific. Do not reuse identical wording across different modes.
+- If sugars/carbs are high, emphasize diabetes risk.
+- If calories/fat are high, emphasize weight-loss risk.
+- If data is missing, explicitly say what is missing.
 """
 
 
@@ -95,6 +106,13 @@ def _rule_based_explanation(ctx: Dict, mode: str) -> str:
     recommendations = ctx.get("risks") or ctx.get("recommendations") or []
     score = ctx.get("score", 50)
     category = ctx.get("health_category", "Unknown")
+
+    decision = "Okay occasionally"
+    if isinstance(score, (int, float)):
+        if score >= 80:
+            decision = "Best for regular use"
+        elif score < 50:
+            decision = "Limit/Avoid"
 
     calories = nutr_per_100g.get("calories")
     protein = nutr_per_100g.get("protein_g")
@@ -158,7 +176,7 @@ def _rule_based_explanation(ctx: Dict, mode: str) -> str:
 
     lines = [
         "## Summary",
-        f"This product is rated **{category}** with a health score of **{_fmt_num(score)}/100** for **{_mode_label(mode)}** mode.",
+        f"{decision}: this product is rated **{category}** with a health score of **{_fmt_num(score)}/100** for **{_mode_label(mode)}** mode.",
         f"Key extracted ingredients include: {ing_preview}.",
         f"Per 100g snapshot: calories {_fmt_num(calories)}, protein {_fmt_num(protein, 'g')}, sugars {_fmt_num(sugar, 'g')}, fiber {_fmt_num(fiber, 'g')}, fat {_fmt_num(fat, 'g')}.",
         "",

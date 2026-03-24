@@ -7,6 +7,10 @@ export function transformAnalysisToScanResult(data) {
   }
 
   const { health, semantic_ingredients, nutrition_normalized, explanation, overall_confidence } = data;
+  const confidenceRaw = Number(overall_confidence);
+  const confidence = Number.isFinite(confidenceRaw)
+    ? Math.max(0, Math.min(100, Math.round(confidenceRaw <= 1 ? confidenceRaw * 100 : confidenceRaw)))
+    : 0;
 
   // Build category from health category
   const category = health?.health_category || "Unknown";
@@ -40,18 +44,17 @@ export function transformAnalysisToScanResult(data) {
   const attributes = {
     "Health Category": category,
     "Health Score": `${health?.health_score || 0}/100`,
-    "Serving Size": nutrition_normalized?.serving_size_g 
-      ? `${nutrition_normalized.serving_size_g}g` 
-      : "Unknown"
+    "Serving Size": nutrition_normalized?.serving_size_description
+      || (nutrition_normalized?.serving_size_g != null ? `${nutrition_normalized.serving_size_g}g` : "Unknown")
   };
 
   // Add key nutrition facts if available
   if (nutrition_normalized?.nutrition_per_100g) {
     const nutr = nutrition_normalized.nutrition_per_100g;
-    if (nutr.fat_g) attributes["Fat (per 100g)"] = `${nutr.fat_g}g`;
-    if (nutr.saturated_fat_g) attributes["Saturated Fat (per 100g)"] = `${nutr.saturated_fat_g}g`;
-    if (nutr.sugars_g) attributes["Sugars (per 100g)"] = `${nutr.sugars_g}g`;
-    if (nutr.sodium_mg) attributes["Sodium (per 100g)"] = `${nutr.sodium_mg}mg`;
+    if (nutr.fat_g != null) attributes["Fat (per 100g)"] = `${nutr.fat_g}g`;
+    if (nutr.saturated_fat_g != null) attributes["Saturated Fat (per 100g)"] = `${nutr.saturated_fat_g}g`;
+    if (nutr.sugars_g != null) attributes["Sugars (per 100g)"] = `${nutr.sugars_g}g`;
+    if (nutr.sodium_mg != null) attributes["Sodium (per 100g)"] = `${nutr.sodium_mg}mg`;
   }
 
   // Build signals from semantic ingredients and nutrition
@@ -98,12 +101,12 @@ export function transformAnalysisToScanResult(data) {
   // Confidence signal
   signals.push({
     key: "Analysis Confidence",
-    value: `${Math.round(overall_confidence || 0)}%`
+    value: `${confidence}%`
   });
 
   return {
     category,
-    confidence: Math.round(overall_confidence || 0),
+    confidence,
     labels,
     attributes,
     signals,

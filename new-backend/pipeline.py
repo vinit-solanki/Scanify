@@ -20,9 +20,13 @@ logger = logging.getLogger(__name__)
 def _normalize_mode(mode: str) -> str:
     """Normalize mode to one of: diabetes, weight_loss, general."""
     m = (mode or "").lower().strip()
-    if m in ("diabetes", "weight_loss"):
+    if m in ("diabetes", "weight_loss", "general"):
         return m
-    return "weight_loss"
+    if m in ("weight loss", "weightloss", "fat_loss", "fatloss"):
+        return "weight_loss"
+    if m in ("diabetic", "blood_sugar", "sugar_control"):
+        return "diabetes"
+    return "general"
 
 
 def analyze_text(label_text: str, mode: str = "general") -> Dict:
@@ -92,8 +96,10 @@ def analyze_text(label_text: str, mode: str = "general") -> Dict:
                 "additives": additives,
                 "risks": health_analysis_dict.get("recommendations", []),
                 "recommendations": health_analysis_dict.get("recommendations", []),
+                "penalties": health_analysis_dict.get("penalties", {}),
                 "score": health.health_score,
                 "health_category": health.health_category,
+                "serving_size_description": nutrition_dict.get("serving_size_description"),
             },
             normalized_mode,
         )
@@ -148,26 +154,59 @@ def analyze_image(file_bytes: bytes, mode: str = "general") -> Dict:
 
 def _calculate_confidence(nutrition_dict: Dict, ingredients: list) -> float:
     """Calculate analysis confidence based on data completeness."""
-    confidence = 0.5
-    
-    # More nutrients extracted = higher confidence
-    nutrient_keys = [k for k in nutrition_dict.keys() if k not in ("serving_size_g", "serving_size_description")]
-    if len(nutrient_keys) >= 5:
+    confidence = 0.35
+
+    nutrient_keys = [
+        k for k in nutrition_dict.keys() if k not in ("serving_size_g", "serving_size_description")
+    ]
+    critical_keys = (
+        "calories",
+        "total_fat_g",
+        "sodium_mg",
+        "carbohydrate_g",
+        "dietary_fiber_g",
+        "sugars_g",
+        "protein_g",
+    )
+    critical_present = sum(
+        1 for k in critical_keys if (k in nutrition_dict and nutrition_dict.get(k) is not None)
+    )
+
+    # Nutrient coverage quality
+    if len(nutrient_keys) >= 7:
         confidence += 0.25
+    elif len(nutrient_keys) >= 5:
+        confidence += 0.18
     elif len(nutrient_keys) >= 3:
-        confidence += 0.15
-    
-    # More ingredients extracted = higher confidence
-    if len(ingredients) >= 5:
-        confidence += 0.2
-    elif len(ingredients) >= 3:
-        confidence += 0.1
-    
-    # Serving size info helps
+        confidence += 0.10
+
+    # Critical fields drive trust more than raw count
+    if critical_present >= 6:
+        confidence += 0.20
+    elif critical_present >= 4:
+        confidence += 0.12
+
+    # Ingredient extraction helps contextual analysis quality
+    if len(ingredients) >= 8:
+        confidence += 0.12
+    elif len(ingredients) >= 4:
+        confidence += 0.08
+    elif len(ingredients) >= 2:
+        confidence += 0.04
+
     if "serving_size_g" in nutrition_dict:
         confidence += 0.05
-    
-    return min(round(confidence, 2), 1.0)
+
+    if nutrient_keys and ingredients:
+        confidence += 0.05
+
+    # Cap confidence when key nutrition fields are missing.
+    if critical_present < 4:
+        confidence = min(confidence, 0.74)
+    elif critical_present < 6:
+        confidence = min(confidence, 0.88)
+
+    return min(round(confidence, 2), 0.98)
 
 
 def _invalid_result(error_message: str) -> Dict:
